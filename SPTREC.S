@@ -3,6 +3,7 @@
 def_version equ 10
 d0_for_mcp equ 0
 mcp_adr equ $00000500
+colors	equ	10
 
 ;        >PART 'my sync'
 
@@ -531,19 +532,25 @@ loop:
 ;       movem.l d0-d7/a0-a6,-(sp)
 ;       jsr music+8
 ;       movem.l (sp)+,d0-d7/a0-a6
+	ifeq colors
        move.w  #$070,$ffff8240.w
+	endc
 
 no_key:
 ;       movem.l d0-d7/a0-a6,-(sp)
 
 ;        lea     $ffff8209.w,a0
+	ifeq colors
        move.w  #$070,$ffff8240.w
+	endc
 ;        move.b  $ffff8209.w,d7
 
 ;       move.l a6,-(sp)
 ;       jsr music+8
 ;       move.l (sp)+,a6
+	ifeq colors
        move.w  #$007,$ffff8240.w
+	endc
 
 ;put musics here, don't change 
 wait_end_of_video:
@@ -560,7 +567,9 @@ wait_end_of_video:
 ;        bra.s wait_end_of_video
 end_of_video:
 	add.b #1,screencounter
+	ifeq colors
        move.w  #$004,$ffff8240.w
+	endc
 
 ; problem: if detector goes below screen it jumps 1 vbl
 
@@ -581,7 +590,9 @@ end_of_video:
         bge  notwaveend
         lea spritecode,a6
 notwaveend:
+	ifeq colors
         move.w  #$0707,$ffff8240.w
+	endc
 
         bsr     drawallsprt
  
@@ -612,7 +623,9 @@ raster_i:
 	move.l #raster,$120.w
 	rte
 raster:
+	ifeq colors
 	move.w #$777,$ffff8240.w
+	endc
 	movem.l	d0-d7/a0-a7,-(sp)
         jsr music+8
         move.b  #200,$fffffa21.w ;B data
@@ -629,7 +642,9 @@ raster:
 ;        move.b  #%00000000,$fffffa1b.w ;B stop
 
 
+	ifeq colors
         move.w  #$0700,$ffff8240.w
+	endc
 	move.l	drawad,a0
 	movem.l	d0-d7/a1-a2,2(a0)   ; scroller time simulator
 	movem.l 2(a0),d0-d7/a1-a2
@@ -643,7 +658,9 @@ raster:
 
 
 	movem.l (sp)+,d0-d7/a0-a7
+	ifeq colors
 	move.w #$000,$ffff8240.w
+	endc
 	rte
 
 drawallsprt:
