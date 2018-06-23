@@ -4,10 +4,10 @@
 def_version equ 10
 d0_for_mcp equ 0
 mcp_adr equ $00000500
-colors	equ	0
+colors	equ	10
 calcmus equ	10
 fastmus	equ	0
-debuggable equ 0
+debuggable equ 10
 
 ;        >PART 'my sync'
 
@@ -487,25 +487,8 @@ clear_loop:
         movem.l pal,d0-d7
         movem.l d0-d7,$ffff8240.w
 
-	ifne debuggable
-        move.b  #%00000000,$fffffa1b.w ;B stop
-        move.b  #195,$fffffa21.w ;B data   bottom of sprite area
-        move.b  #%00001000,$fffffa1b.w ;B eventmode
-	or.b    #%00000001,$fffffa07.w ;B enable irq
-	or.b    #%00000001,$fffffa13.w ;B unmask irq
-        move.l  #raster_i,$00000120.w
-        move    #$2500,sr
-	endc
 
-       lea spritecode,a6
-;        endpart
-
-;        PART 'main loop'
-
-;	move.l #vbl,$70.w
-
-
-
+   ifeq colors
    move.l screenad,a0
    not.w 80(a0)
    add.l #32000,a0
@@ -514,30 +497,85 @@ clear_loop:
    not.w 80+16(a0)
    add.l #32000,a0
    not.w 80+24(a0)
-   
+   endc
 
         move.l screenad,d0
 	add.l #32000,d0
 	move.l d0,drawad+8
+	move.l d0,scrolldraw+4
+	bsr	mkbg
         ror.l   #8,d0
         move.l d0,screenad+4
 
         move.l screenad,d0
 	add.l #2*32000,d0
 	move.l d0,drawad+12
+	move.l d0,scrolldraw+8
+	bsr	mkbg
         ror.l   #8,d0
         move.l d0,screenad+8
 
         move.l screenad,d0
 	add.l #3*32000,d0
 	move.l d0,drawad
+	move.l d0,scrolldraw+12
+	bsr	mkbg
         ror.l   #8,d0
         move.l d0,screenad+12
 
         move.l screenad,d0
 	move.l d0,drawad+4
+	move.l d0,scrolldraw
+	bsr	mkbg
         ror.l   #8,d0
 	move.l d0,screenad
+
+	bra.s mkraster
+
+mkbg:
+	lea background,a6
+	move.l	d0,a5	; destination
+	move.l	a6,a4	;source
+	addq	#4,a5
+	moveq #5,d5   ; 6 logo lines
+logoloop:
+	move.l	a6,a4	;source
+	moveq #17,d6  ; logo is 18 high
+logcol1:
+	moveq #9,d7	; 10 logos per line
+logline1:
+	move.l	(a4),(a5)
+	move.l	4(a4),8(a5)
+	add.l	#16,a5
+	dbra d7,logline1
+	addq.l	#8,a4
+	dbra d6,logcol1
+	add.l  #16*160,a5
+	dbra d5,logoloop
+	rts
+
+mkraster:
+
+	ifne debuggable
+        move.b  #%00000000,$fffffa1b.w ;B stop
+        move.b  #199,$fffffa21.w ;B data   bottom of sprite area
+        move.b  #%00001000,$fffffa1b.w ;B eventmode
+	or.b    #%00000001,$fffffa07.w ;B enable irq
+	or.b    #%00000001,$fffffa13.w ;B unmask irq
+        move.b  #194,$fffffa21.w ;B data   
+        move.l  #raster_i,$00000120.w
+;	move.l	#vbl,$70.w
+        move    #$2500,sr
+	endc
+
+
+       lea spritecode,a6
+;        endpart
+
+;        PART 'main loop'
+
+;	move.l #vbl,$70.w
+
 
 
 
@@ -629,59 +667,29 @@ notwaveend:
 
 
 ; scroller....
-	move.w	scrollcount,d0
-	addq.w	#1,d0
-	move.w	d0,scrollcount
-	andi.w	#$fff3,d0
-	bne	noscroll
+	ifeq colors
+        move.w  #$0770,$ffff8240.w
+	endc
 
+	ifeq 10
 	move.l	drawad,a5
 	adda.l	#160*195,a5 ; down there
 
-; move 5 lines 16 bytes to left
-	movem.l	16(a5),d0-d7/a0-a3 ; cols 2-7
-	movem.l	d0-d7/a0-a3,(a5)   ; cols 0-5
-	movem.l	64(a5),d0-d7/a0-a3 ; cols 8-13
-	movem.l	d0-d7/a0-a3,48(a5) ; cols 6-11
-	movem.l	112(a5),d0-d7/a0-a3 ; cols 14-19
-	move.l	a3,a4
-	movem.l	d0-d7/a0-a4,96(a5)  ; cols 12-17.5
-	add.w	#160,a5
-	movem.l	16(a5),d0-d7/a0-a3 ; cols 2-7
-	movem.l	d0-d7/a0-a3,(a5)   ; cols 0-5
-	movem.l	64(a5),d0-d7/a0-a3 ; cols 8-13
-	movem.l	d0-d7/a0-a3,48(a5) ; cols 6-11
-	movem.l	112(a5),d0-d7/a0-a3 ; cols 14-19
-	move.l	a3,a4
-	movem.l	d0-d7/a0-a4,96(a5)  ; cols 12-17.5
-	add.w	#160,a5
-	movem.l	16(a5),d0-d7/a0-a3 ; cols 2-7
-	movem.l	d0-d7/a0-a3,(a5)   ; cols 0-5
-	movem.l	64(a5),d0-d7/a0-a3 ; cols 8-13
-	movem.l	d0-d7/a0-a3,48(a5) ; cols 6-11
-	movem.l	112(a5),d0-d7/a0-a3 ; cols 14-19
-	move.l	a3,a4
-	movem.l	d0-d7/a0-a4,96(a5)  ; cols 12-17.5
-	add.w	#160,a5
-	movem.l	16(a5),d0-d7/a0-a3 ; cols 2-7
-	movem.l	d0-d7/a0-a3,(a5)   ; cols 0-5
-	movem.l	64(a5),d0-d7/a0-a3 ; cols 8-13
-	movem.l	d0-d7/a0-a3,48(a5) ; cols 6-11
-	movem.l	112(a5),d0-d7/a0-a3 ; cols 14-19
-	move.l	a3,a4
-	movem.l	d0-d7/a0-a4,96(a5)  ; cols 12-17.5
-	add.w	#160,a5
-	movem.l	16(a5),d0-d7/a0-a3 ; cols 2-7
-	movem.l	d0-d7/a0-a3,(a5)   ; cols 0-5
-	movem.l	64(a5),d0-d7/a0-a3 ; cols 8-13
-	movem.l	d0-d7/a0-a3,48(a5) ; cols 6-11
-	movem.l	112(a5),d0-d7/a0-a3 ; cols 14-19
-	move.l	a3,a4
-	movem.l	d0-d7/a0-a4,96(a5)  ; cols 12-17.5
+	rept 5
+	movem.w	4(a5),d0-d7/a0-a1
+	movem.w	4(a5),d0-d7/a0-a1
+	endr
+	rept 50
+	move.w d0,4(a5)
+	move.w d0,4(a5)
+	endr	
+	endc
 
-; create new scroll data
-
-noscroll:
+	ifeq 0
+	endc
+	ifeq colors
+        move.w  #$000,$ffff8240.w
+	endc
 ;        bsr     waitvbl
 
         bra     loop
@@ -689,6 +697,10 @@ noscroll:
 
 
 vbl:
+	; reset palette
+
+
+	rte
 ;init raster
         
 
@@ -701,18 +713,18 @@ vbl:
 ;	move.w #$700,$ffff8240.w
 ;	rte
 raster_i:
-        move.b  #%00000000,$fffffa1b.w ;B stop
-        move.b  #200,$fffffa21.w ;B data   bottom of sprite area
-        move.b  #%00001000,$fffffa1b.w ;B eventmode
-	or.b    #%00000001,$fffffa07.w ;B enable irq
-	or.b    #%00000001,$fffffa13.w ;B unmask irq
+;        move.b  #%00000000,$fffffa1b.w ;B stop
+        move.b  #6,$fffffa21.w ;B data   bottom of sprite area
+;        move.b  #%00001000,$fffffa1b.w ;B eventmode
+;	or.b    #%00000001,$fffffa07.w ;B enable irq
+;	or.b    #%00000001,$fffffa13.w ;B unmask irq
 	move.l #raster,$120.w
-	rte
-raster:
-	ifeq colors
-	move.w #$777,$ffff8240.w
-	endc
-	movem.l	d0-d7/a0-a7,-(sp)
+
+	movem.l	d0-d7/a0-a6,-(sp)
+
+;  MUSIC
+	 ifeq calcmus
+
 	moveq #0,d0
 	move.b $fffffa1d.w,d0
 	and.w #$000f,d0
@@ -724,7 +736,8 @@ sid:
 	move.w #$0077,$ffff8240.w
 notsid:
 
-	 ifeq calcmus
+
+
 	 move.l	musicsave,a0
 	 lea ymregisters,a1
 	 moveq #0,d2   ; which regs change
@@ -793,26 +806,236 @@ notmusend:
 	move.l a0,musptr
 	endc
 
-        move.b  #200,$fffffa21.w ;B data
-;        dcb 50,$00004e71
+
+
+
+	ifeq 0
+
+; scroller....
+	ifeq colors
+        move.w  #$0770,$ffff8240.w
+	endc
+
+	ifeq 10
+	move.l	drawad,a5
+	adda.l	#160*195,a5 ; down there
+
+	rept 5
+	movem.w	4(a5),d0-d7/a0-a1
+	movem.w	4(a5),d0-d7/a0-a1
+	endr
+	rept 50
+	move.w d0,4(a5)
+	move.w d0,4(a5)
+	endr	
+	endc
+
+
+
+
+
+
+	move.w	scrollcount,d0
+	addq.w	#1,d0
+	move.w	d0,scrollcount
+
+	subq.w #1,d0
+	andi.w	#%1111,d0   
+	bne	noscroll
+
+	lea	scrolldraw,a6
+
+	rept	4	; 4 screens
+	move.l	(a6)+,a5
+	adda.l	#160*194+8,a5 ; down there
+
+; move 5 lines 8 bytes to left
+	movem.l	(a5)+,d0-d7/a0-a4 ; cols 2-7
+	movem.l	d0-d7/a0-a4,-60(a5)   ; cols 0-5
+	movem.l	(a5)+,d0-d7/a0-a4 ; cols 8-13
+	movem.l	d0-d7/a0-a4,-60(a5) ; cols 6-11
+	movem.l	(a5)+,d0-d7/a0-a3 ; cols 14-19
+	movem.l	d0-d7/a0-a3,-56(a5)  ; cols 12-17.5
+	addq	#8,a5
+	movem.l	(a5)+,d0-d7/a0-a4 ; cols 2-7
+	movem.l	d0-d7/a0-a4,-60(a5)   ; cols 0-5
+	movem.l	(a5)+,d0-d7/a0-a4 ; cols 8-13
+	movem.l	d0-d7/a0-a4,-60(a5) ; cols 6-11
+	movem.l	(a5)+,d0-d7/a0-a3 ; cols 14-19
+	movem.l	d0-d7/a0-a3,-56(a5)  ; cols 12-17.5
+	addq	#8,a5
+	movem.l	(a5)+,d0-d7/a0-a4 ; cols 2-7
+	movem.l	d0-d7/a0-a4,-60(a5)   ; cols 0-5
+	movem.l	(a5)+,d0-d7/a0-a4 ; cols 8-13
+	movem.l	d0-d7/a0-a4,-60(a5) ; cols 6-11
+	movem.l	(a5)+,d0-d7/a0-a3 ; cols 14-19
+	movem.l	d0-d7/a0-a3,-56(a5)  ; cols 12-17.5
+	addq	#8,a5
+	movem.l	(a5)+,d0-d7/a0-a4 ; cols 2-7
+	movem.l	d0-d7/a0-a4,-60(a5)   ; cols 0-5
+	movem.l	(a5)+,d0-d7/a0-a4 ; cols 8-13
+	movem.l	d0-d7/a0-a4,-60(a5) ; cols 6-11
+	movem.l	(a5)+,d0-d7/a0-a3 ; cols 14-19
+	movem.l	d0-d7/a0-a3,-56(a5)  ; cols 12-17.5
+	addq	#8,a5
+	movem.l	(a5)+,d0-d7/a0-a4 ; cols 2-7
+	movem.l	d0-d7/a0-a4,-60(a5)   ; cols 0-5
+	movem.l	(a5)+,d0-d7/a0-a4 ; cols 8-13
+	movem.l	d0-d7/a0-a4,-60(a5) ; cols 6-11
+	movem.l	(a5)+,d0-d7/a0-a3 ; cols 14-19
+	movem.l	d0-d7/a0-a3,-56(a5)  ; cols 12-17.5
+	endr
+
+	ifeq colors
+	not.w	$ffff8240.w
+	endc
+; create new scroll data
+; we need to create 16 shifts of 1 bit
+ 
+	move.l	curfontpos,a0	;get pos inside font
+	move.l	scrollptr,a1
+
+	movem.l	scrollbuff,d3-d7	; get scrolldata
+
+	move.l	#scrolldraw,a5
+;	move.l	#drawad,a5
+	moveq.w #3,d0   ; 4 screens
+	moveq.w #15,d2
+	swap d2
+	move.w	#160*194+152,d2	; scrollpos on screen
+	swap d2
+do16shifts:
+	move.b	(a0)+,d1	;get one slice of letter
+	; extract 5 top bits for 5 lines scroll
+	add.b	d1,d1
+	addx.w	d3,d3
+	add.b	d1,d1
+	addx.w	d4,d4
+	add.b	d1,d1
+	addx.w	d5,d5
+	add.b	d1,d1
+	addx.w	d6,d6
+	add.b	d1,d1
+	addx.w	d7,d7
+	add.b	d1,d1
+	beq.s	nonextchar   ; bit below font set=end of char
+
+nextchar:
+	moveq #0,d1
+	move.b	(a1)+,d1	; get next char
+	bne.s	noscrolltextend	;end of text
+scrolltextend:
+	move.l	#scrolltext,a1
+	move.b	(a1)+,d1	; get ascii val
+noscrolltextend:
+
+	; calculate charaddr
+;	muls.w	#6,d1	;each char is 6 bytes
+	add.w	d1,d1
+	move.l	#font,a0
+	add.w	d1,a0
+	add.w	d1,d1
+	lea	(a0,d1),a0   ; new curfontpos
+nonextchar:
+	; write the data for each shift
+	move.l	(a5)+,a2   ;get drawad
+	swap	d2
+	adda.w	d2,a2
+	move.w	d3,(a2)
+	move.w	d4,160(a2)
+	move.w	d5,160*2(a2)
+	move.w	d6,160*3(a2)
+	move.w	d7,160*4(a2)
+	dbra d0,nodrawadloop
+drawadloop:
+	lea	scrolldraw,a5
+	addq.w	#2,d2		; next columns
+	moveq #3,d0	; 4 screens again
+nodrawadloop:
+
+	swap d2
+	dbra	d2,do16shifts
+
+	move.l	a0,curfontpos
+	move.l	a1,scrollptr
+	movem.l	d3-d7,scrollbuff	; save scrolldata
+
+noscroll:
+
+
+
+	ifeq colors
+        move.w  #$000,$ffff8240.w
+	endc
+
+
+; main Palette
+
+	movem.l	pal,d0-d7
+	movem.l d0-d7,$ffff8240.w
+
+
+	endc
+
+
+	movem.l	(sp)+,d0-d7/a0-a6
+
+	rte
+raster:
+	ifeq colors
+	move.w #$777,$ffff8240.w
+	endc
+
+	ifeq	calcmus
+	movem.l	d0-d7/a0-a7,-(sp)
+	endc
+	ifne	calcmus
+	movem.l	d0-d4/a0-a2,-(sp)
+	endc
+
+	ifeq 0
+
+	move.l	scrollpalanimpos,a0
+	addq.l	#4,a0
+	cmpa.l	#scrollpalanimend,a0
+	bne.s	notpalanimend
+	lea	scrollpalanim,a0
+notpalanimend:
+	move.l	a0,scrollpalanimpos
+	move.l	(a0),a0
+	movem.l	(a0),d0-d4/a0-a2
+	movem.l	d0-d4/a0-a2,$ffff8240.w
+
+	endc
+
+;        move.b  #%00000000,$fffffa1b.w ;B stop
+        move.b  #194,$fffffa21.w ;B data
+	move.l #raster_i,$120.w
+;        move.b  #%00001000,$fffffa1b.w ;B eventmode
         move.l screenad,d0     ; load non displaying
         move.l screenad+4,screenad ; swap
         move.l screenad+8,screenad+4 ; swap
         move.l screenad+12,screenad+8 ; swap
         move.l d0,screenad+12
-;        ror.l   #8,d0
         lea     $ffff8201.w,a1
         movep.w d0,0(a1)
 	subq.b #1,screencounter
-;        move.b  #%00000000,$fffffa1b.w ;B stop
+
+
+
+
 
 
 	ifeq colors
         move.w  #$0700,$ffff8240.w
 	endc
 	
-
+	ifeq calcmus
 	movem.l (sp)+,d0-d7/a0-a7
+	endc
+	ifne	calcmus
+	movem.l (sp)+,d0-d4/a0-a2
+	endc
 	ifeq colors
 	move.w #$000,$ffff8240.w
 	endc
@@ -832,10 +1055,80 @@ drawallsprt:
 
 ;        PART 'data'
 pal:
-        dc.w $0000,$003,$0337,$0005,$0444,$0555,$0666,$0777
-        dc.w $0000,$0001,$0002,$0003,$0004,$0005,$0006,$0007
+        dc.w $0000,$0003,$0337,$0005,$0444,$0003,$0337,$0005
+        dc.w $0222,$0003,$0337,$0005,$0777,$0003,$0337,$0005
+scrollpal0:
+	dc.w 0,0,0,0,0,0,0,0
+	dc.w $777,$777,$777,$777,$777,$777,$777,$777
+scrollpal1:
+	dc.w 0,0,0,0,$700,$700,$700,$700
+	dc.w 0,0,0,0,$700,$700,$700,$700
+scrollpal2:
+	dc.w 0,0,$70,$70,0,0,$70,$70
+	dc.w 0,0,$70,$70,0,0,$70,$70
+scrollpal3:
+	dc.w 0,$77,0,$77,0,$77,0,$77
+	dc.w 0,$77,0,$77,0,$77,0,$77
+	dc.l	scrollpal1,scrollpal1,scrollpal1,scrollpal1
+	dc.l	scrollpal0,scrollpal0,scrollpal0,scrollpal0
+scrollpalanim:
+	dc.l	scrollpal3,scrollpal3,scrollpal3,scrollpal3
+	dc.l	scrollpal2,scrollpal2,scrollpal2,scrollpal2
+	dc.l	scrollpal1,scrollpal1,scrollpal1,scrollpal1
+	dc.l	scrollpal0,scrollpal0,scrollpal0,scrollpal0
+scrollpalanimend:
+scrollpalanimpos:
+	dc.l	scrollpalanim+8+16*3
+
 scrollcount:
 	dc.w -1
+scrolltext:
+	dc.b "Voila. C'est fait. Le record est battu. "
+	dc.b "Ceci est une preview, a ne surtout pas distribuer! "
+	dc.b "Si cet ecran est distribue, des missiles intercontinentaux "
+	dc.b "vont s'abattre sur toi. Ce sera la fin du monde! "
+	dc.b "Bon apres cet petit WARNING, voici les caracteristiques "
+	dc.b "de la demo. Actuellement 235 sprites sur l'ecran. Une "
+	dc.b "musique YM et un scroll 1-bit NON precacule. "
+	dc.b "Je pourrais mettre un scrolltecte eneorme ici pour "
+	dc.b "te montrer, mais quoi ecrire? Par exemple j'ai le "
+	dc.b "grand luxe de petits et grands caracteres. J'aurais "
+	dc.b "aussi pu ajouter les accents... Le logo a ete fait "
+	dc.b "par moi, base sur l'original de TCB. La musique est "
+	dc.b "la LAP27 en attendant une nouvelle qui va bien. Le "
+	dc.b "sprite est de TCB et le couleurs par moi. Et bien sur "
+	dc.b "tout le code est par moi, Gunstick de Unlimited Matricks. "
+	dc.b "ULM rules!                "
+	dc.b 0
+	even
+scrollptr:
+	dc.l scrolltext
+curcharpos:
+	dc.w 5
+curfontpos:
+	dc.l font+32*6   ;space
+background:
+;      $0000,$0555,$0222,$0777,$0000,$0000,$0000,$0000
+;      $0000,$0000,$0000,$0000,$0000,$0000,$0555,$0557
+	dc.w	$FFFF,$FFFF,$FFFF,$FFFF
+	dc.w	$FFFF,$FFFF,$FFFE,$FFFF
+	dc.w	$FFFF,$FFFF,$FFFC,$FFFF
+	dc.w	$FFFF,$E000,$FFF8,$0007
+	dc.w	$FFFF,$E000,$FFF8,$0007
+	dc.w	$FFFF,$E336,$FFF8,$18C7
+	dc.w	$FF76,$E3BF,$FFD8,$1DE7
+	dc.w	$FF76,$E3BF,$FFD8,$1FE7
+	dc.w	$FF76,$E3BF,$FAD8,$1FE7
+	dc.w	$FF76,$E3BF,$FAD8,$1DE7
+	dc.w	$FFF7,$E3FF,$FBD8,$DCE7
+	dc.w	$FFE7,$E1FF,$DBD8,$FCE7
+	dc.w	$FF0C,$E0F3,$1318,$ECE7
+	dc.w	$FFFF,$E000,$FFF8,$0007
+	dc.w	$E000,$FFFF,$0000,$FFFF
+	dc.w	$C000,$FFFF,$0000,$FFFF
+	dc.w	$8000,$FFFF,$0000,$FFFF
+	dc.w	$8000,$FFFF,$0000,$FFFF
+
 
 sprite:
         dc.w %0000011111100000,%0000000000000000 ;d0,xx
@@ -909,8 +1202,8 @@ spritedat0:
         dc.w %0001111111111000,%0000000000000000
         dc.w %0000011111100000,%0000000000000000
 
-font:
-
+font	equ *-6*32     ; pbm iwithout header, 6*32=offset ascii space
+	incbin "FONT5RM.BIN"
         dc.l $ffffffff
 
 	ifne fastmus
@@ -918,6 +1211,7 @@ music:
 ;	incbin 'MAD_VIS.BIN'
 	incbin 'LAP27.BIN'
 ;	incbin '1.BIN'
+	even
 	endc
 screencounter:
 	dc.b 1
@@ -928,7 +1222,7 @@ musptr:
 	dc.l musbuff
 musbuff:
 	incbin 'MUSIC.BIN'
-	dc.b 0
+	even
 
 musbuffend:
 	dc.l 0
@@ -949,6 +1243,10 @@ bss_start:                      ;here starts the bss
 ;        PART 'bss'
 screenad:ds.l 4
 drawad: ds.l 4
+scrolldraw: ds.l 4
+scrollbuff:
+	ds.l 5
+
 	ifeq calcmus
 musbuff:
 	ds.b 14*50*60*3

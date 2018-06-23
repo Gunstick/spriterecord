@@ -2,7 +2,7 @@
 
 $debug=1;
 $wavelen=360;    # demo value: 360
-$nb_sprites=237; 
+$nb_sprites=235; 
 # first version: 80
 # with 16 block column joined erase: 201
 # with detailed column eraser: 215
@@ -24,8 +24,10 @@ $nb_sprites=237;
 # throw out unused move routines (gains only 8 bra)
 # pre-dbra d7 with test if -1 for shift 15 only: 235
 # pre-dbra for moves too and pre-addr-calc for deleter: 236
-# kill off dbra with jmp from delete tab: 236
+# kill off dbra with jmp from delete tab: 236 (almost 237)
+# scroll time simulator replaced by non-precalc scroller: 235
 
+# deltab use a0 and last add->a0 goes back to screenad+offset
 # unroll loops for move & or ?
 
 
