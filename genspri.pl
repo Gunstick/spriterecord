@@ -2,7 +2,7 @@
 
 $debug=1;
 $wavelen=360;    # demo value: 360
-$nb_sprites=232; 
+$nb_sprites=236; 
 # first version: 80
 # with 16 block column joined erase: 201
 # with detailed column eraser: 215
@@ -18,6 +18,14 @@ $nb_sprites=232;
 # HBL interrupt added: 226
 # scroll time simulator added: 225
 # sprite loop memory counter -> register counter: 231
+# slow YM tune player: 233 (with lap27)
+# fast YM tune player: 234
+# sid voice costs 2 sprites...
+# throw out unused move routines (gains only 8 bra)
+# pre-dbra d7 with test if -1 for shift 15 only: 235
+
+# idea: sub 1 to sprite loop var (for OR) and remove BRA
+#       for this force 1 or even if all can be moved
 
 print ";set a0 to screen base\n";
 print ";set a6 to sprite curb start base\n";
@@ -56,11 +64,12 @@ print "\t move.w (a6)+,d1\n";
 #print "\t add.w d1,d1\n";
 #print "\t neg.w d1\n";
 print "\t jmp (a2,d1)\n";
-for ($i=200;$i>=0;$i--)
+for ($i=200;$i>=1;$i--)
 {
   print "\t move.l d2,$i*160(a1)\n";
   #print "\t adda.w #160,a1\n";
 }
+print "\t move.l d2,(a1)\n";
 print "clearcode:\n";
 print "\t dbra d0,delsprite_l\n";
 
@@ -297,7 +306,6 @@ for ($i=2;$i<16;$i+=1)
 $bss.="writesprite${s}_c:\n";
 $bss.="\tds.w 0\n";
 #print "\tnot.w \$ffff8240.w\n";
-print "\tmove.w (a6)+,d7\n";
 #if ($a0offset != 0) { print "\tlea $a0offset(a0),a0\n" }
 if ($need<=7)
 {
@@ -305,8 +313,19 @@ if ($need<=7)
 } else {
   print "\tmovem.l writesprite${s}_d,d0-d5/a1-a".($need-6)."\n";
 }
-#goto noMOVE;
-print "\t bra writesprite${s}_ms\n";
+print "\tmove.w (a6)+,d7\n";
+if (($s == 8) || ($s==7) || ($s==6) || ($s==5) || ($s==4) || ($s==3) || ($s==2) || ($s==1))
+{
+print "; JUST DON'T DO THIS MOVE\n";
+ goto noMove;
+}
+if (($s == 10)||($s==9))
+{
+ print "\t bmi noMv_${s}\n";
+} else {
+ print "\t bmi.s noMv_${s}\n";
+}
+#print "\t bra writesprite${s}_ms\n";
 print "writesprite${s}_ml:\n";
 
 #   MOVE
@@ -343,10 +362,12 @@ for ($i=0;$i<16;$i+=1)
 #print "\t subq #1,d7\n";
 print "writesprite${s}_ms:\n";
 print "\t dbra d7,writesprite${s}_ml\n";
+print "noMv_${s}:\n";
 
 print "\tmove.w (a6)+,d7\n";
-noMOVE:
-print "\t bra writesprite${s}_s\n";
+noMove:
+($s == 15) && (print "\tbmi.s noOr\n");
+#print "\t bra writesprite${s}_s\n";
 
 #   OR 
 print "writesprite${s}_l:\n";
@@ -385,6 +406,7 @@ foreach $ad (keys(%a2d))
 #print "\t subq #1,d7\n";
 print "writesprite${s}_s:\n";
 print "\t dbra d7,writesprite${s}_l\n";
+($s == 15) && (print "noOr:\n");
 }
 
 
@@ -491,10 +513,10 @@ print "\nspritecode:\n";
     
     }
     # inc global angles for the frame
-    $pxa1 += 2*2;    #  3
-    $pxa2 += 4*2;    #  2
-    $pya1 += -1*2;   # -1
-    $pya2 += 4*2;    #  2
+    $pxa1 += 2*2;    #2  3
+    $pxa2 += 4*2;    #4  2
+    $pya1 += -1*2;   #-1 -1
+    $pya2 += 4*2;    #4  2
     $pxa3 += 3;
     $pxa4 += 5;
     $pya3 += 3;
@@ -527,17 +549,19 @@ print "\nspritecode:\n";
       $spriteprog_mvals_bin="";
       $m_n=0;
       $j_c=0;
+      if (($i == 8) || ($i==7) || ($i==6) || ($i==5) || ($i==4) || ($i==3) || ($i==2) || ($i==1))
+      {  # shifts 6 & 7 & 8 can't be moved
+	$noMove=1;
+      } else {
+        $noMove=0;
+      }
+
       my @new_list;
       foreach $j ( @$aref ) 
       {
         my $col=($j-(int($j/160))*160)/8;
         my $y=int($j/160);
-        if (($i == 8) || ($i==7) || ($i==6))
-        {
-          $empty=1;  # shifts 6 & 7 & 8 can't be moved
-        } else {
-          $empty=0;  # assume possible
-        }
+        $empty=$noMove;
         for($s_y=0;$s_y<16;$s_y++)
         { # check col1 and col2 for free space
           if(($movetab[$col][$y+$s_y]!=0)||($movetab[$col+1][$y+$s_y]!=0))
@@ -618,8 +642,13 @@ $o_curpos=$curpos;
 #           $delcount++;
       }
 #$spriteprog_vals="";$spriteprog_vals_bin="";$n=0;$curpos=$o_curpos;
-      $spriteprog_all .= "\tdc.w ".($m_n).$spriteprog_mvals."; mv \n"."\tdc.w $n". $spriteprog_vals ."; or\n";
-      $spriteprog_all_bin .= pack("n",$m_n).$spriteprog_mvals_bin.pack("n",$n).$spriteprog_vals_bin;
+
+      if ($noMove == 0) {
+        $spriteprog_all .= "\tdc.w ".($m_n-1).$spriteprog_mvals."; mv \n";
+        $spriteprog_all_bin .= pack("n",$m_n-1).$spriteprog_mvals_bin;
+      }
+      $spriteprog_all .= "\tdc.w ".($n-1). $spriteprog_vals ."; or\n";
+      $spriteprog_all_bin .= pack("n",$n-1).$spriteprog_vals_bin;
     }
 
     # adapting previously calculated delframe code
@@ -676,8 +705,8 @@ $curdel2=$curdel;
       {
         for (my $e=$delstart;$e<$delend;$e++) {$eraser[$frame][$i][$e]=1}
         $delframe1 .= "delete from: [ $delstart to $delend ] (".($delend-$delstart).")\n" unless $debug;
-        $delframe1 .= "\t dc.w ".($i*8+($delstart)*160-$curdel).",".(-4*(1+$delend-$delstart))."; col $i [ $delstart to $delend ]\n";
-        $delframe1_bin .= pack("n",($i*8+($delstart)*160-$curdel)).pack("n",-4*(1+$delend-$delstart));
+        $delframe1 .= "\t dc.w ".($i*8+($delstart)*160-$curdel).",".(-4*(1+$delend-$delstart)+2)."; col $i [ $delstart to $delend ]\n";
+        $delframe1_bin .= pack("n",($i*8+($delstart)*160-$curdel)).pack("n",-4*(1+$delend-$delstart)+2);
 #        $curdel=$i*8+$delend*160+160;
         $curdel=$i*8+$delstart*160;
         $delcount++;
@@ -752,8 +781,8 @@ sub eee
         } else {
           if ($delend < $j)
           {
-            $delframe4 .= "\t dc.w ".($i*8+($delstart)*160-$curdel2).",".(-4*(1+$delend-$delstart))."; col $i [ $delstart to $delend ]\n";
-            $delframe4_bin .= pack("n",($i*8+($delstart)*160-$curdel2)).pack("n",-4*(1+$delend-$delstart));
+            $delframe4 .= "\t dc.w ".($i*8+($delstart)*160-$curdel2).",".(-4*(1+$delend-$delstart)+2)."; col $i [ $delstart to $delend ]\n";
+            $delframe4_bin .= pack("n",($i*8+($delstart)*160-$curdel2)).pack("n",-4*(1+$delend-$delstart)+2);
             $delcount++;
         $curdel2=$i*8+$delstart*160;
             $delstart=$j;$delend=$j+1; # 16
@@ -770,8 +799,8 @@ sub eee
       {
         for (my $e=$delstart;$e<=$delend;$e++) {$eraser4[$i][$e]=1}
         $delframe4 .= "delete from: [ $delstart to $delend ] (".($delend-$delstart).")\n" unless $debug;
-        $delframe4 .= "\t dc.w ".($i*8+($delstart)*160-$curdel2).",".(-4*(1+$delend-$delstart))."; col $i [ $delstart to $delend ]\n";
-        $delframe4_bin .= pack("n",($i*8+($delstart)*160-$curdel2)).pack("n",-4*(1+$delend-$delstart));
+        $delframe4 .= "\t dc.w ".($i*8+($delstart)*160-$curdel2).",".(-4*(1+$delend-$delstart)+2)."; col $i [ $delstart to $delend ]\n";
+        $delframe4_bin .= pack("n",($i*8+($delstart)*160-$curdel2)).pack("n",-4*(1+$delend-$delstart)+2);
         $curdel2=$i*8+$delstart*160;
         $delcount++;
         $delstart=$j;$delend=$j+1; # 16
