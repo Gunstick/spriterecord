@@ -5,8 +5,8 @@ def_version equ 10
 d0_for_mcp equ 0
 mcp_adr equ $00000500
 colors	equ	10
-calcmus equ	10
-fastmus	equ	0
+calcmus equ	0
+fastmus	equ	10
 debuggable equ 10
 cheatvbl equ 0
 vblcheck equ 10   ; needs cheatvbl. exits if vbl exeeded

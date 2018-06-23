@@ -1,5 +1,6 @@
-#!/usr/bin/perl
+#include <stdio.h>
 
+/*
 # new ymx format: interleaved bit field
 
 # format of ym file:
@@ -45,49 +46,72 @@
 #                         F=envelope frequency
 #                          E=envelope form (reg13)
 #                           n=future extension (SID, DRUM)
+ */
 
-read STDIN,$ID,4;
-read STDIN,$Check,8;
-read STDIN,$Nb_frames,4;$Nb_frames=unpack("N",$Nb_frames);
-read STDIN,$Attributes,4;$Attributes=unpack("n",$Attributes);
-read STDIN,$Nb_digidrum,2;$Nb_digidrum=unpack("n",$Nb_digidrum);
-read STDIN,$YMmasterclock,4;$YMmasterclock=unpack("N",$YMmasterclock);
-read STDIN,$Hz,2;$Hz=unpack("n",$Hz);
-read STDIN,$Loop_frame,4;$Loop_frame=unpack("N",$Loop_frame);
-read STDIN,$AddDataSize,2;$AddDataSize=unpack("n",$AddDataSize);
-read STDIN,$dummy,$AddDataSize;
-for ($i=0;$i<$Nb_digidrum;$i++)
+main()
 {
-  read STDIN,$dummy,4;$dummy=unpack("N",$dummy);  # drum len
-  read STDIN,$dummy,$dummy;
-}
-{
-  local $/ = "\0";
-  $Song_name=<STDIN>;
-  $Author_name=<STDIN>;
-  $Song_comment=<STDIN>;
-}
-for ($i=0;$i<16;$i++)      # read each register sequence into string
-{
-  read STDIN,$regvals[$i],$Nb_frames;
-}
-read STDIN,$EndID,4;
+char ID[4]; char Check[8]; long Nb_frames; char Attributes[4];
+int Nb_digidrum; char YMmasterclock[4]; char Hz[2]; char Loop_frame[4];
+int AddDataSize; char EndID[4];
+char dummy[100000],Song_name[1000],Author_name[1000],Song_comment[1000];
+int i,n,l,o[14];
+char c;
+char regvals[16][30000] ;
 
-print STDERR "id=$ID check=$Check frames=$Nb_frames attr=$Attributes\n";
-print STDERR "drums=$Nb_digidrum clock=$YMmasterclock HZ=$Hz\n";
-print STDERR "loop at=$Loop_frame opt data=$AddDataSize\n";
-print STDERR "Song: $Song_name\nAuthor: $Author_name\nComment: $Song_comment\n";
-print STDERR "EndID=$EndID\n";
-
-for ($i=0;$i<14;$i++)
+fread(ID,4,1,stdin);
+fread(Check,8,1,stdin);
+fread(&n,1,1,stdin); Nb_frames=n<<8;
+fread(&n,1,1,stdin); Nb_frames+=n;Nb_frames=Nb_frames<<8;
+fread(&n,1,1,stdin); Nb_frames+=n;Nb_frames=Nb_frames<<8;
+fread(&n,1,1,stdin); Nb_frames+=n;
+fread(Attributes,1,4,stdin);
+fread(&n,1,1,stdin);Nb_digidrum=n << 8;
+fread(&n,1,1,stdin);Nb_digidrum+=n;
+fread(YMmasterclock,4,1,stdin);
+fread(Hz,2,1,stdin);
+fread(Loop_frame,4,1,stdin);
+fread(&n,1,1,stdin);AddDataSize=n<<8;
+fread(&n,1,1,stdin);AddDataSize+=n;
+fprintf(stderr,"add data=%i\n",AddDataSize);
+fread(dummy,AddDataSize,1,stdin);
+for (i=0;i<Nb_digidrum;i++)
 {
-  $o[$i]=-1;
+  fprintf(stderr,"digifrum: %i\n",i);
+  fread(&n,1,1,stdin);l=n<<8;
+  fread(&n,1,1,stdin);l+=n;l=l<<8;
+  fread(&n,1,1,stdin);l+=n;l=l<<8;
+  fread(&n,1,1,stdin);l+=n;
+  /* n = drum len */
+  fread(dummy,n,1,stdin);
 }
-$ff=pack("C",0xff);
-for ($i=0;$i<$Nb_frames;$i++)  # loop through all frames of the song
+
+fscanf(stdin,"%s",Song_name);
+fscanf(stdin,"%s",Author_name);
+fscanf(stdin,"%s",Song_comment);
+
+for (i=0;i<16;i++)      /* read each register sequence into string */
 {
-  $bits=0;
-  $output=pack('C',0).pack('C',0);
+  fread(regvals[i],Nb_frames,1,stdin);
+}
+fread(EndID,4,1,stdin);
+
+fprintf(stderr, "YM soung info:\n");
+fprintf(stderr, "id=%s check=%s frames=%i attr=%s\n",ID,Check,Nb_frames,Attributes);
+fprintf(stderr, "drums=%i clock=%s HZ=%s\n",Nb_digidrum,YMmasterclock,Hz);
+fprintf(stderr, "loop at=$Loop_frame opt data=$AddDataSize\n");
+fprintf(stderr, "Song: %s\nAuthor: %s\nComment: %s\n",Song_name,Author_name,Song_comment);
+fprintf(stderr, "EndID=%s\n",EndID);
+
+for (i=0;i<14;i++)
+{
+  o[i]=-1;
+}
+// $ff=pack("C",0xff);
+for (i=0;i<Nb_frames;i++)  /* loop through all frames of the song */
+{
+  int bits=0;
+  /*
+  output=pack('C',0).pack('C',0);
 
   print "O='".$output . "'\n";
   # first check main channels frequency
@@ -164,6 +188,9 @@ for ($i=0;$i<$Nb_frames;$i++)  # loop through all frames of the song
     $output[length[$output]-1]|= 0b00010000;
   }
   print $output.pack("C",$bits).$output2;
+
+
+  */
 }
   
-  
+} 
