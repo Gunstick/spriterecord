@@ -1,13 +1,13 @@
-0 958georges@storm georges $ printf "%d" 0x3c9
-1 969georges@storm georges $ printf "%d" 0x1466
-2 5222georges@storm georges $ printf "%d" 0xa10
-3 2576georges@storm georges $ printf "%d" 0x4d1
-4 1233georges@storm georges $ printf "%d" 0x45
-5 69georges@storm georges $ printf "%d" 0xb2
-6 178georges@storm georges $ printf "%d" 0x6b6
-7 1718georges@storm georges $ printf "%d" 0x2
-8 2georges@storm georges $ printf "%d" 0xbb3
-9 2995georges@storm georges $ printf "%d" 0x4c1
-10 1217georges@storm georges $ printf "%d" 0x91
-11 145georges@storm georges $ printf "%d" 0x2
-12 2georges@
+0 958
+1 969
+2 5222
+3 2576
+4 1233
+5 69
+6 178
+7 1718
+8 2
+9 2995
+10 1217
+11 145
+12 2

@@ -5,8 +5,8 @@ def_version equ 10
 d0_for_mcp equ 0
 mcp_adr equ $00000500
 colors	equ	10
-calcmus equ	0
-fastmus	equ	10
+calcmus equ	10
+fastmus	equ	0
 debuggable equ 10
 cheatvbl equ 0
 vblcheck equ 10   ; needs cheatvbl. exits if vbl exeeded
@@ -1122,6 +1122,8 @@ drawallsprt:
         data
 
 ;        PART 'data'
+spritecode:
+	incbin 'cblesprt.bin'
 pal:
         dc.w $0000,$0003,$0337,$0005,$0444,$0003,$0337,$0005
         dc.w $0222,$0003,$0337,$0005,$0777,$0003,$0337,$0005

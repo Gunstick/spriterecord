@@ -44,15 +44,17 @@ print ";set a0 to screen base\n";
 print ";set a6 to sprite curb start base\n";
 print ";modifies d0-d7/a0-a4\n";
 print ";sprite curb format:\n";
-print ";number_of_deletes  ; table of 16xn stripes to erase\n";
-print ";delete1.w,dellen1.w ;repeated number_of_deletes times\n";
+#print ";number_of_deletes  ; table of 16xn stripes to erase\n";
+print ";ScrnOffset.w,DelcodestackOffsetDiff.w ;repeated number_of_deletes times\n";
+print "; [...]\n";    the end of deletes is 0,JumpoutOffset
+print ";number_of_shift15_MOVE.w\n";
+print ";NextSpriteOffset.w   ;repeated number_of_shift15_MOVE times\n";
 print "; [...]\n";
-print ";number_of_shift15.w\n";
-print ";offset_1.w   ;repeated number_of_shift15 times\n";
-print ";offset_2.w   ;distance to next sprite in screen coords\n";
+print ";number_of_shift15_OR.w\n";
+print ";NextSpriteOffset.w   ;repeated number_of_shift15_OR times\n";
 print "; [...]\n";
-print ";number_of_shift14.w\n";
-print ";offset_1.w   ;repeated number_of_shift14 times\n";
+print ";number_of_shift14_MOVE.w\n";
+print ";NextSpriteOffset.w   ;repeated number_of_shift14_MOVE times\n";
 print "; [...]\n";
 print "; ... until shift 0\n";
 print "\n";
@@ -449,7 +451,7 @@ for ($i=0;$i<360*2;$i++)
   $cosTab[$i]=int(cos($i/360*$pi)*(1<<15));
   $sinTab[$i]=int(cos($i/360*$pi)*(1<<15));
 }
-print "\nspritecode:\n";
+#print "\nspritecode:\n";
 {
   # math by Leonard
   my $pxa1=0;
@@ -788,7 +790,7 @@ print OB pack("n",-1);
 
 close O;
 close OB;
-print "\tincbin \"cblesprt.bin\"\n";
+#print "\tincbin \"cblesprt.bin\"\n";
 
 print $bss;
 
