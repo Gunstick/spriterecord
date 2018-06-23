@@ -228,6 +228,7 @@ delsprite_l:
 	 move.l d2,0*160(a1)
 clearcode:
 	 dbra d0,delsprite_l
+	move.w #$000,$ffff8240.w
 	 add.w #1120,a0
 ;Shift 15
 ;Needs  8 registers

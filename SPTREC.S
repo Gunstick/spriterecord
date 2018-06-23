@@ -56,7 +56,7 @@ start:
 
 
         bsr     video_init
-;        bsr     vect_mfp_init
+        bsr     vect_mfp_init
         bsr     sound_init
 
         bra     screen
@@ -172,7 +172,6 @@ restore_system:
 restore_system_no_ste:
         movem.l (a0),d0-d7
         movem.l d0-d7,$ffff8240.w
-
         lea     oldpsg(pc),a0
         moveq   #15,d0
 restore_psg_loop:
@@ -184,7 +183,7 @@ restore_psg_loop:
 
 video_init:
         movem.l black(pc),d0-d7
-;        movem.l d0-d7,$ffff8240.w
+        movem.l d0-d7,$ffff8240.w
 
         bsr     waitvbl
         move.b  #0,$ffff8260.w
@@ -448,6 +447,7 @@ black:  ds.l 16
 ;        PART 'prepare'
 
 screen:
+	jsr music
         lea     bss_start,a0
         lea     bss_end,a1
         movem.l black(pc),d1-d7/a2-a6
@@ -472,81 +472,179 @@ clear_loop:
         movem.l pal,d0-d7
         movem.l d0-d7,$ffff8240.w
 
+        move.b  #%00000000,$fffffa1b.w ;B stop
+        move.b  #195,$fffffa21.w ;B data   bottom of sprite area
+        move.b  #%00001000,$fffffa1b.w ;B eventmode
+	or.b    #%00000001,$fffffa07.w ;B enable irq
+	or.b    #%00000001,$fffffa13.w ;B unmask irq
+        move.l  #raster_i,$00000120.w
+
        lea spritecode,a6
 ;        endpart
 
 ;        PART 'main loop'
 
+;	move.l #vbl,$70.w
+
+        move    #$2500,sr
+
+
+   move.l screenad,a0
+   not.w 80(a0)
+   add.l #32000,a0
+   not.w 80+8(a0)
+   add.l #32000,a0
+   not.w 80+16(a0)
+   add.l #32000,a0
+   not.w 80+24(a0)
+   
+
         move.l screenad,d0
-        add.l #32000,d0
+	add.l #32000,d0
+	move.l d0,drawad+8
+        ror.l   #8,d0
         move.l d0,screenad+4
+
+        move.l screenad,d0
+	add.l #2*32000,d0
+	move.l d0,drawad+12
+        ror.l   #8,d0
+        move.l d0,screenad+8
+
+        move.l screenad,d0
+	add.l #3*32000,d0
+	move.l d0,drawad
+        ror.l   #8,d0
+        move.l d0,screenad+12
+
+        move.l screenad,d0
+	move.l d0,drawad+4
+        ror.l   #8,d0
+	move.l d0,screenad
+
+
 
 loop:
         
         cmpi.b  #57,$fffffc02.w
         beq     exit
+;       movem.l d0-d7/a0-a6,-(sp)
+;       jsr music+8
+;       movem.l (sp)+,d0-d7/a0-a6
        move.w  #$070,$ffff8240.w
 
 no_key:
+;       movem.l d0-d7/a0-a6,-(sp)
+
+;        lea     $ffff8209.w,a0
+       move.w  #$070,$ffff8240.w
+;        move.b  $ffff8209.w,d7
+
+;       move.l a6,-(sp)
+;       jsr music+8
+;       move.l (sp)+,a6
+       move.w  #$007,$ffff8240.w
+
+;put musics here, don't change 
 wait_end_of_video:
-        lea     $ffff8209.w,a0
-        move.b  (a0),d7
-
-;put musics here, don't change d7
-        dcb 97-7-7-4-4,$00004e71
-        moveq   #30,d2
-        cmp.b   (a0),d7
-        bne   wait_end_of_video
-       move.w  #$000,$ffff8240.w
-;        dcb 4500,$00004e71
-sync:
-;        move.b  (a0),d7
-;        beq.s   sync
-;        sub.w   d7,d2
-;        lsl.l   d2,d2
-
-        move.l screenad+4,d0     ; load non displaying
-        move.l d0,a0  ; draw on this screen     
-   
-        move.l screenad,screenad+4 ; swap
-        move.l d0,screenad
-        ror.l   #8,d0
-        lea     $ffff8201.w,a1
-        movep.w d0,0(a1)
-
-
-;        moveq   #0,d0
-
-;        move.w  #911,$ffff8240.w
-;        move.w  #0,$ffff8240.w
+;        move.b  $ffff8209.w,d7
 ;        dcb 97-7-7-4-4,$00004e71
-;        move.w  d0,(a0)         ;~2
-;        or.w    d0,(a0)         ;~3
-;        or.l    d0,(a0)         ;~5
-;        or.l    d0,8(a0)        ;~6
-;        move.l  d0,(a0)         ;~3
-;        move.l  d0,8(a0)        ;~4
-;        or.l    d0,0(a0,d0.w)   ;~7
-;        move.l  d0,0(a0,d0.w)   ;~5
-;        ori.l   #%00000000000000000001111011011101,(a0) ;~7
-;        addq.l  #2,a0           ;~2
-;        move.l  a0,d0           ;~1
-;        move.w  #$0777,$ffff8240.w
-;        move.w  #0,$ffff8240.w
+;        cmp.b   $ffff8209.w,d7   ; the incredible wobbly border detector
+        tst.b  screencounter 
+        bgt  wait_end_of_video
+;        bne   end_of_video
+;        move.w #10,d0
+;vidwloop:
+;        dbf d0,vidwloop
+;        move.b  $ffff8209.w,d7
+;        bra.s wait_end_of_video
+end_of_video:
+	add.b #1,screencounter
+       move.w  #$004,$ffff8240.w
 
-;        move.w  #$0707,$ffff8240.w
-        movea.l screenad+4,a0
+; problem: if detector goes below screen it jumps 1 vbl
+
+
+        move.l drawad,d0     ; load non displaying
+        move.l drawad+4,drawad ; swap
+        move.l drawad+8,drawad+4 ; swap
+        move.l drawad+12,drawad+8 ; swap
+        move.l d0,drawad+12
+;        ror.l   #8,d0
+;        lea     $ffff8201.w,a1
+;        movep.w d0,0(a1)
+
+
+        movea.l d0,a0
     
         tst.w (a6)
         bge  notwaveend
         lea spritecode,a6
 notwaveend:
-;        move.w  #$0707,$ffff8240.w
+        move.w  #$0707,$ffff8240.w
+
         bsr     drawallsprt
  
 ;        bsr     waitvbl
 
         bra     loop
+
+
+
+vbl:
+;init raster
+        
+
+;        move.b  #%00000000,$fffffa1b.w ;B stop
+;        move.b  #195,$fffffa21.w ;B data
+;        move.b  #%00001000,$fffffa1b.w ;B eventmode
+;	or.b    #%00000001,$fffffa07.w ;B enable irq
+;	or.b    #%00000001,$fffffa13.w ;B unmask irq
+;        move.l  #rasters,$00000120.w
+;	move.w #$700,$ffff8240.w
+;	rte
+raster_i:
+        move.b  #%00000000,$fffffa1b.w ;B stop
+        move.b  #200,$fffffa21.w ;B data   bottom of sprite area
+        move.b  #%00001000,$fffffa1b.w ;B eventmode
+	or.b    #%00000001,$fffffa07.w ;B enable irq
+	or.b    #%00000001,$fffffa13.w ;B unmask irq
+	move.l #raster,$120.w
+	rte
+raster:
+	move.w #$777,$ffff8240.w
+	movem.l	d0-d7/a0-a7,-(sp)
+        jsr music+8
+        move.b  #200,$fffffa21.w ;B data
+;        dcb 50,$00004e71
+        move.l screenad,d0     ; load non displaying
+        move.l screenad+4,screenad ; swap
+        move.l screenad+8,screenad+4 ; swap
+        move.l screenad+12,screenad+8 ; swap
+        move.l d0,screenad+12
+;        ror.l   #8,d0
+        lea     $ffff8201.w,a1
+        movep.w d0,0(a1)
+	sub.b #1,screencounter
+;        move.b  #%00000000,$fffffa1b.w ;B stop
+
+
+        move.w  #$0700,$ffff8240.w
+	move.l	drawad,a0
+	movem.l	d0-d7/a1-a2,2(a0)   ; scroller time simulator
+	movem.l 2(a0),d0-d7/a1-a2
+	movem.l	d0-d7/a1-a2,2(a0)
+	movem.l 2(a0),d0-d7/a1-a2
+	movem.l	d0-d7/a1-a2,2(a0)
+	movem.l 2(a0),d0-d7/a1-a2
+	movem.l	d0-d7/a1-a2,2(a0)
+	movem.l 2(a0),d0-d7/a1-a2
+
+
+
+	movem.l (sp)+,d0-d7/a0-a7
+	move.w #$000,$ffff8240.w
+	rte
 
 drawallsprt:
         include 'CBLESPRT.S'
@@ -562,7 +660,7 @@ drawallsprt:
 
 ;        PART 'data'
 pal:
-        dc.w $0000,$0003,$0007,$0004,$0444,$0555,$0666,$0777
+        dc.w $0000,$003,$0337,$0005,$0444,$0555,$0666,$0777
         dc.w $0000,$0001,$0002,$0003,$0004,$0005,$0006,$0007
 sprite:
         dc.w %0000011111100000,%0000000000000000 ;d0,xx
@@ -583,8 +681,8 @@ sprite:
         dc.w %0000011111100000,%0000000000000000
 
 
-spritecode_tst:
-        include 'wave.s'
+;spritecode_tst:
+;        include 'wave.s'
    dc.w 1
 plopp:
    dc.w 160*5,16
@@ -640,6 +738,11 @@ font:
 
         dc.l $ffffffff
 
+music:
+	incbin 'LAP27.BIN'
+screencounter:
+	dc.b 1
+	dc.b 0
 
 ;        endpart
 
@@ -648,11 +751,12 @@ font:
 bss_start:                      ;here starts the bss
 
 ;        PART 'bss'
-
-screenad:ds.l 1
- ds.l 1
+screenad:ds.l 4
+drawad: ds.l 4
 
 screenmem:ds.l 64
+        ds.l 8000
+        ds.l 8000
         ds.l 8000
         ds.l 8000
         ds.l 100
