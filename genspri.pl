@@ -2,7 +2,7 @@
 
 $debug=1;
 $wavelen=360;    # demo value: 360
-$nb_sprites=236; 
+$nb_sprites=237; 
 # first version: 80
 # with 16 block column joined erase: 201
 # with detailed column eraser: 215
@@ -23,9 +23,11 @@ $nb_sprites=236;
 # sid voice costs 2 sprites...
 # throw out unused move routines (gains only 8 bra)
 # pre-dbra d7 with test if -1 for shift 15 only: 235
+# pre-dbra for moves too and pre-addr-calc for deleter: 236
+# kill off dbra with jmp from delete tab: 236
 
-# idea: sub 1 to sprite loop var (for OR) and remove BRA
-#       for this force 1 or even if all can be moved
+# unroll loops for move & or ?
+
 
 print ";set a0 to screen base\n";
 print ";set a6 to sprite curb start base\n";
@@ -53,17 +55,15 @@ print "writesprite:      ; bsr here with a0 & a6 set\n";
 print "\n";
 print "\n";
 print "\tlea clearcode,a2\n";
-print "\tmove.w (a6)+,d0\n";
+#print "\tmove.w (a6)+,d0\n";
 print "\tmoveq.l #0,d2\n";
 print "\tmove.l a0,a1\n";
+print "\t bra clearcode\n";
 print "delsprite_l:\n";
-print "\t adda.w (a6)+,a1\n";
-print "\t move.w (a6)+,d1\n";
 #print "\t lsl.w #2,d1\n";
 #print "\t add.w d1,d1\n";
 #print "\t add.w d1,d1\n";
 #print "\t neg.w d1\n";
-print "\t jmp (a2,d1)\n";
 for ($i=200;$i>=1;$i--)
 {
   print "\t move.l d2,$i*160(a1)\n";
@@ -71,7 +71,10 @@ for ($i=200;$i>=1;$i--)
 }
 print "\t move.l d2,(a1)\n";
 print "clearcode:\n";
-print "\t dbra d0,delsprite_l\n";
+print "\t adda.w (a6)+,a1\n";
+print "\t adda.w (a6)+,a2\n";
+print "\t jmp (a2)\n";
+#print "\t dbra d0,delsprite_l\n";
 
 print "\tifeq colors\n\tmove.w #\$000,\$ffff8240.w\n\tendc\n";
 print "\t add.w #1120,a0\n";
@@ -746,10 +749,10 @@ for $frame (1..$wavelen)
   eee();
   $delcount--;
   print O "; erase frame $df\n";
-  print O "\tdc.w $delcount\n";
+#  print O "\tdc.w $delcount\n";
   print O $delframe4;
   print O $spriteprog[$frame];
-  print OB pack("n",$delcount);
+#  print OB pack("n",$delcount);
   print OB $delframe4_bin;
   print OB $spriteprog_bin[$frame];
 }
@@ -763,6 +766,7 @@ print $bss;
 
 sub eee
 {
+    $prevdeloffset=0;
     for $i (0..19)
     {
 #      $delframe4 .= "; col $i rows: ";
@@ -781,8 +785,9 @@ sub eee
         } else {
           if ($delend < $j)
           {
-            $delframe4 .= "\t dc.w ".($i*8+($delstart)*160-$curdel2).",".(-4*(1+$delend-$delstart)+2)."; col $i [ $delstart to $delend ]\n";
-            $delframe4_bin .= pack("n",($i*8+($delstart)*160-$curdel2)).pack("n",-4*(1+$delend-$delstart)+2);
+            $delframe4 .= "\t dc.w ".($i*8+($delstart)*160-$curdel2).",".(-4*(1+$delend-$delstart)+2-$prevdeloffset)."; col $i [ $delstart to $delend ]\n";
+            $delframe4_bin .= pack("n",($i*8+($delstart)*160-$curdel2)).pack("n",-4*(1+$delend-$delstart)+2-$prevdeloffset);
+	    $prevdeloffset=-4*(1+$delend-$delstart)+2;
             $delcount++;
         $curdel2=$i*8+$delstart*160;
             $delstart=$j;$delend=$j+1; # 16
@@ -799,13 +804,16 @@ sub eee
       {
         for (my $e=$delstart;$e<=$delend;$e++) {$eraser4[$i][$e]=1}
         $delframe4 .= "delete from: [ $delstart to $delend ] (".($delend-$delstart).")\n" unless $debug;
-        $delframe4 .= "\t dc.w ".($i*8+($delstart)*160-$curdel2).",".(-4*(1+$delend-$delstart)+2)."; col $i [ $delstart to $delend ]\n";
-        $delframe4_bin .= pack("n",($i*8+($delstart)*160-$curdel2)).pack("n",-4*(1+$delend-$delstart)+2);
+        $delframe4 .= "\t dc.w ".($i*8+($delstart)*160-$curdel2).",".(-4*(1+$delend-$delstart)+2-$prevdeloffset)."; col $i [ $delstart to $delend ]\n";
+        $delframe4_bin .= pack("n",($i*8+($delstart)*160-$curdel2)).pack("n",-4*(1+$delend-$delstart)+2-$prevdeloffset);
+	$prevdeloffset=-4*(1+$delend-$delstart)+2;
         $curdel2=$i*8+$delstart*160;
         $delcount++;
         $delstart=$j;$delend=$j+1; # 16
       }
 #      $delframe4 .= "; \n ";
     } 
-
+    # this is a jmp, replacing the dbra loop (38 nops gained/vbl)
+    $delframe4 .= "\t dc.w 0,".(6-$prevdeloffset)."\n";
+    $delframe4_bin .= pack("n",0).pack("n",6-$prevdeloffset);
 }

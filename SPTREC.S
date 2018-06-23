@@ -7,6 +7,7 @@ mcp_adr equ $00000500
 colors	equ	0
 calcmus equ	10
 fastmus	equ	0
+debuggable equ 0
 
 ;        >PART 'my sync'
 
@@ -61,7 +62,9 @@ start:
 
 
         bsr     video_init
+	ifne	debuggable
         bsr     vect_mfp_init
+	endc
         bsr     sound_init
 
         bra     screen
@@ -484,12 +487,15 @@ clear_loop:
         movem.l pal,d0-d7
         movem.l d0-d7,$ffff8240.w
 
+	ifne debuggable
         move.b  #%00000000,$fffffa1b.w ;B stop
         move.b  #195,$fffffa21.w ;B data   bottom of sprite area
         move.b  #%00001000,$fffffa1b.w ;B eventmode
 	or.b    #%00000001,$fffffa07.w ;B enable irq
 	or.b    #%00000001,$fffffa13.w ;B unmask irq
         move.l  #raster_i,$00000120.w
+        move    #$2500,sr
+	endc
 
        lea spritecode,a6
 ;        endpart
@@ -498,7 +504,6 @@ clear_loop:
 
 ;	move.l #vbl,$70.w
 
-        move    #$2500,sr
 
 
    move.l screenad,a0
@@ -582,7 +587,9 @@ wait_end_of_video:
 ;        dcb 97-7-7-4-4,$00004e71
 ;        cmp.b   $ffff8209.w,d7   ; the incredible wobbly border detector
         tst.b  screencounter 
+	ifne debuggable
         bgt.s  wait_end_of_video
+	endc
 ;        bne   end_of_video
 ;        move.w #10,d0
 ;vidwloop:
@@ -619,10 +626,65 @@ notwaveend:
 	endc
 
         bsr     drawallsprt
- 
+
+
+; scroller....
+	move.w	scrollcount,d0
+	addq.w	#1,d0
+	move.w	d0,scrollcount
+	andi.w	#$fff3,d0
+	bne	noscroll
+
+	move.l	drawad,a5
+	adda.l	#160*195,a5 ; down there
+
+; move 5 lines 16 bytes to left
+	movem.l	16(a5),d0-d7/a0-a3 ; cols 2-7
+	movem.l	d0-d7/a0-a3,(a5)   ; cols 0-5
+	movem.l	64(a5),d0-d7/a0-a3 ; cols 8-13
+	movem.l	d0-d7/a0-a3,48(a5) ; cols 6-11
+	movem.l	112(a5),d0-d7/a0-a3 ; cols 14-19
+	move.l	a3,a4
+	movem.l	d0-d7/a0-a4,96(a5)  ; cols 12-17.5
+	add.w	#160,a5
+	movem.l	16(a5),d0-d7/a0-a3 ; cols 2-7
+	movem.l	d0-d7/a0-a3,(a5)   ; cols 0-5
+	movem.l	64(a5),d0-d7/a0-a3 ; cols 8-13
+	movem.l	d0-d7/a0-a3,48(a5) ; cols 6-11
+	movem.l	112(a5),d0-d7/a0-a3 ; cols 14-19
+	move.l	a3,a4
+	movem.l	d0-d7/a0-a4,96(a5)  ; cols 12-17.5
+	add.w	#160,a5
+	movem.l	16(a5),d0-d7/a0-a3 ; cols 2-7
+	movem.l	d0-d7/a0-a3,(a5)   ; cols 0-5
+	movem.l	64(a5),d0-d7/a0-a3 ; cols 8-13
+	movem.l	d0-d7/a0-a3,48(a5) ; cols 6-11
+	movem.l	112(a5),d0-d7/a0-a3 ; cols 14-19
+	move.l	a3,a4
+	movem.l	d0-d7/a0-a4,96(a5)  ; cols 12-17.5
+	add.w	#160,a5
+	movem.l	16(a5),d0-d7/a0-a3 ; cols 2-7
+	movem.l	d0-d7/a0-a3,(a5)   ; cols 0-5
+	movem.l	64(a5),d0-d7/a0-a3 ; cols 8-13
+	movem.l	d0-d7/a0-a3,48(a5) ; cols 6-11
+	movem.l	112(a5),d0-d7/a0-a3 ; cols 14-19
+	move.l	a3,a4
+	movem.l	d0-d7/a0-a4,96(a5)  ; cols 12-17.5
+	add.w	#160,a5
+	movem.l	16(a5),d0-d7/a0-a3 ; cols 2-7
+	movem.l	d0-d7/a0-a3,(a5)   ; cols 0-5
+	movem.l	64(a5),d0-d7/a0-a3 ; cols 8-13
+	movem.l	d0-d7/a0-a3,48(a5) ; cols 6-11
+	movem.l	112(a5),d0-d7/a0-a3 ; cols 14-19
+	move.l	a3,a4
+	movem.l	d0-d7/a0-a4,96(a5)  ; cols 12-17.5
+
+; create new scroll data
+
+noscroll:
 ;        bsr     waitvbl
 
-        bra.s     loop
+        bra     loop
 
 
 
@@ -748,17 +810,7 @@ notmusend:
 	ifeq colors
         move.w  #$0700,$ffff8240.w
 	endc
-	move.l	drawad,a0
-	movem.l	d0-d7/a1-a2,2(a0)   ; scroller time simulator
-	movem.l 2(a0),d0-d7/a1-a2
-	movem.l	d0-d7/a1-a2,2(a0)
-	movem.l 2(a0),d0-d7/a1-a2
-	movem.l	d0-d7/a1-a2,2(a0)
-	movem.l 2(a0),d0-d7/a1-a2
-	movem.l	d0-d7/a1-a2,2(a0)
-	movem.l 2(a0),d0-d7/a1-a2
-
-
+	
 
 	movem.l (sp)+,d0-d7/a0-a7
 	ifeq colors
@@ -782,6 +834,9 @@ drawallsprt:
 pal:
         dc.w $0000,$003,$0337,$0005,$0444,$0555,$0666,$0777
         dc.w $0000,$0001,$0002,$0003,$0004,$0005,$0006,$0007
+scrollcount:
+	dc.w -1
+
 sprite:
         dc.w %0000011111100000,%0000000000000000 ;d0,xx
         dc.w %0001111111111000,%0000000000000000 ;d1,xx
@@ -883,7 +938,7 @@ musbuffend:
 musicsave:
 	dc.l	musbuff
 ymregisters:
-	ds.b 14
+	dcb.b 14,-1
 	endc
 ;        endpart
 
@@ -911,3 +966,4 @@ my_stack:
 
 bss_end:                        ;here ends the bss
         end
+ 
