@@ -2,7 +2,10 @@
 
 $debug=1;
 $wavelen=360;    # demo value: 360
-$nb_sprites=235; 
+$nb_sprites=238;
+$nb_sprites=200;
+$overlap=0;	# mega cheat: set it bigger than 0
+$singlebits=0;  # mega cheat: set to 1 
 # first version: 80
 # with 16 block column joined erase: 201
 # with detailed column eraser: 215
@@ -26,6 +29,12 @@ $nb_sprites=235;
 # pre-dbra for moves too and pre-addr-calc for deleter: 236
 # kill off dbra with jmp from delete tab: 236 (almost 237)
 # scroll time simulator replaced by non-precalc scroller: 235
+# added the sort of sprite bins, overlap detector: 236
+# fuzzy overlap detector by column, max 1 pixels: 240
+# fuzzy overlap detector by column, max 2 pixels: 243
+# fuzzy overlap detector by column, max 3 pixels: 245
+# change music player with many end conditions tests: 238
+# singlebits plus 1 pixel overlap plus VBLcheater: 247 (I can't detect anything)
 
 # deltab use a0 and last add->a0 goes back to screenad+offset
 # unroll loops for move & or ?
@@ -153,7 +162,7 @@ for ($i=0;$i<=$#sprite;$i++)
 {
   $wo=$sprite[$i];
   printf "%032b \n",$wo unless $debug;
-  if ($wo !~ /^0+$/) 
+  if ($wo !~ /^0+$/)
   {
     if ($pattern{$wo} eq "")
     {
@@ -183,10 +192,15 @@ for ($i=$#patttab-1;$i>=0;$i--)
   $p =~ /^(.{8})0{8}$/ && ($p=$1,$len="b");  # write as byte
   $p =~ /^0{8}(.{8})$/ && ($p=$1,$len="b",$offset+=1);  # write as byte
   print "m=$p.$len,$offset(a0) $indexes" unless $debug;
+  if ($singlebits && (($p =~ /^10+$/) || ($p =~ /^x0+1$/)))
+  {
+    # cheat single bits
+  } else {
   $ORval[$#ORval++]="$p";
   $ORlen[$#ORlen++]="$len";
   $ORoffset[$#ORoffset++]="$offset";
   $ORindexes[$#ORindexes++]="$indexes";
+  }
   print "\n" unless $debug;
 }
 }
@@ -285,9 +299,9 @@ print "\n";
 $data.="writesprite${s}_d:\n";
 for ($i=0;$i<=$#regcont;$i++)
 {
-  if (($i>5) && ($need > 7))
+  if (($i>5) && ($need > 7))   # d6
   {
-    print ";a".($i-5)."=$regcont[$i]\n";
+    print ";a".($i-5)."=$regcont[$i]\n"; # d6
   } else {
     print ";d$i=$regcont[$i]\n";
   }
@@ -295,6 +309,7 @@ for ($i=0;$i<=$#regcont;$i++)
 }
 print "\n";
 $j=30;
+if ($singlebits) {$a0offset=1120};
 for ($i=2;$i<16;$i+=1)
 {
   if (($a0offset eq "") && ($writesprite[$i]=~ /,1120/))
@@ -308,15 +323,15 @@ for ($i=2;$i<16;$i+=1)
     }
   }
 }
-$bss.="writesprite${s}_c:\n";
-$bss.="\tds.w 0\n";
+#$bss.="writesprite${s}_c:\n";
+#$bss.="\tds.w 0\n";
 #print "\tnot.w \$ffff8240.w\n";
 #if ($a0offset != 0) { print "\tlea $a0offset(a0),a0\n" }
 if ($need<=7)
 {
   print "\tmovem.l writesprite${s}_d,d0-d".($need-1)."\n";
 } else {
-  print "\tmovem.l writesprite${s}_d,d0-d5/a1-a".($need-6)."\n";
+  print "\tmovem.l writesprite${s}_d,d0-d5/a1-a".($need-6)."\n";   # d6
 }
 print "\tmove.w (a6)+,d7\n";
 if (($s == 8) || ($s==7) || ($s==6) || ($s==5) || ($s==4) || ($s==3) || ($s==2) || ($s==1))
@@ -344,20 +359,20 @@ for ($i=0;$i<16;$i+=1)
   $register=$1;
   print " rc=$regcont[$register]\n" unless $debug;
   $j=30-($i&0xffe)+($i&1);
-  if (($need>6)&&($writesprite[$i] =~ /(d[6789])|(d1[0-4])/))
+  if (($need>7)&&($writesprite[$i] =~ /(d[6789])|(d1[0-4])/))   # d6
   {
-    $register-=5;
+    $register-=5;   # d5 d6
     $r="a";
   }
   $writesprite[$i]=~s/,([0-9]+)\(a0\)/,$1-$a0offset(a0)/;
-  ($ws=$writesprite[$i])=~s/(d[6789])|(d1[0-4])/$r$register/;
+  ($ws=$writesprite[$i])=~s/(d[6789])|(d1[0-4])/$r$register/;   # d6
   ($regcont[$register] =~ /0{8}.{8}$/) &&
     $ws =~ s/(move|or).b (d|a)([0-7],0*)([0-9]*[13579])([^\d])/"$1.w $2$3".($4-1)."$5"/e;
   $ws=~s/or/move/;
   $ws=~s/move.b a/; NOT WORKING move.b a/;
   print "$ws";
   $writesprite[$j]=~s/,([0-9]+)\(a0\)/,$1-$a0offset(a0)/;
-  ($ws=$writesprite[$j])=~s/(d[56789])|(d1[0-4])/$r$register/;
+  ($ws=$writesprite[$j])=~s/(d[56789])|(d1[0-4])/$r$register/;  # d6 XXX
   ($regcont[$register] =~ /0{8}.{8}$/) &&
     $ws =~ s/(move|or).b (d|a)([0-7],0*)([0-9]*[13579])([^\d])/"$1.w $2$3".($4-1)."$5"/e;
   $ws=~s/or/move/;
@@ -384,10 +399,10 @@ print "\t adda.w (a6)+,a0\n";
 for ($i=0;$i<16;$i+=1)
 {
   $j=30-($i&0xffe)+($i&1);
-  if (($need>7) && ($writesprite[$i] =~ /(d[6789])|(d1[0-4])/))
+  if (($need>7) && ($writesprite[$i] =~ /(d[6789])|(d1[0-4])/))  # d6
   {
     $writesprite[$i]=~/d([0-9]+)/;
-    $register=$1-5;
+    $register=$1-5;    # d6
     $writesprite[$i]=~s/,([0-9]+)\(a0\)/,$1-$a0offset(a0)/;
     $writesprite[$i]=~s/(d[6789])|(d1[0-4])/d6/;
     $a2d{"a$register"}.="$writesprite[$i]";
@@ -507,10 +522,10 @@ print "\nspritecode:\n";
         }
       } 
       # Inc angles
-      $pxb1 += 7*2;   # -7
-      $pxb2 += -4*2;   #  4
-      $pyb1 += 6*2;   # -6
-      $pyb2 += -3*2;   #  3
+      $pxb1 += 7*2;   #1 7 -7
+      $pxb2 += -4*2;  #2 -4 4    
+      $pyb1 += 6*2;   #3 6 -6
+      $pyb2 += -3*2;  #5 -3 3
       $pxb3 += 3;
       $pxb4 += 2;
       $pyb3 += 4;
@@ -518,10 +533,10 @@ print "\nspritecode:\n";
     
     }
     # inc global angles for the frame
-    $pxa1 += 2*2;    #2  3
-    $pxa2 += 4*2;    #4  2
-    $pya1 += -1*2;   #-1 -1
-    $pya2 += 4*2;    #4  2
+    $pxa1 += 3*2;    #4 2  3
+    $pxa2 += 2*2;    #2 4  2
+    $pya1 += -1*2;   #3 -1 -1
+    $pya2 += 4*2;    #1 4  2
     $pxa3 += 3;
     $pxa4 += 5;
     $pya3 += 3;
@@ -562,10 +577,17 @@ print "\nspritecode:\n";
       }
 
       my @new_list;
-      foreach $j ( @$aref ) 
+      # this sort is quite important to find the 100% overlaps ...
+      $oy=-1;
+      $ocol=-1;
+      $oj=-1;
+      # foreach $j ( sort {(($a-(int($a/160))*160)/8) <=> (($b-(int($b/160))*160)/8)} @$aref ) 
+      foreach $j ( sort {$a <=> $b} @$aref ) 
       {
-        my $col=($j-(int($j/160))*160)/8;
-        my $y=int($j/160);
+       my $col=($j-(int($j/160))*160)/8;
+       my $y=int($j/160);
+       if ((abs($oy - $y) >$overlap) || ($ocol != $col))   # overlap
+       {
         $empty=$noMove;
         for($s_y=0;$s_y<16;$s_y++)
         { # check col1 and col2 for free space
@@ -604,6 +626,10 @@ print "\nspritecode:\n";
           push @new_list,$j;
         } 
         $j_c++;
+       }
+       $oj=$j;
+       $oy=$y;
+       $ocol=$col;
       }
 #      $bins[$i]=[ @new_list ];
 #      $spriteprog .= ";\tdc.w $n". $spriteprog_mvals ."\n";
