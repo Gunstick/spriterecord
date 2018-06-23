@@ -2,7 +2,7 @@
 
 $debug=1;
 $wavelen=36;    # demo value: 360
-$nb_sprites=225; 
+$nb_sprites=1; 
 # first version: 80
 # with 16 block column joined erase: 201
 # with detailed column eraser: 215
@@ -551,8 +551,8 @@ print "\nspritecode:\n";
           { # make this spot occupied
             $movetab[$col][$y+$s_y]=1;
             $movetab[$col+1][$y+$s_y]=1;
-#            if ($sp_used[0][$s_y]==2) { $eraser1[$col][$y+$s_y]=0; }
-#            if ($sp_used[1][$s_y]==2) { $eraser1[$col+1][$y+$s_y]=0; }
+#            if ($sp_used[0][$s_y]==2) { $eraser[$frame][$col][$y+$s_y]=0; }
+#            if ($sp_used[1][$s_y]==2) { $eraser[$frame][$col+1][$y+$s_y]=0; }
           }
           $spriteprog_mvals .= ",".($j-$curpos);
           $spriteprog_mvals_bin.=pack("n",($j-$curpos));
@@ -622,20 +622,20 @@ $o_curpos=$curpos;
     for my $i (0..19) {for my $j (0..199) { $eraser3[$i][$j]=$eraser2[$i][$j] }}
     $delframe3 = $delframe2;
     $delframe3_bin = $delframe2_bin;
-    for my $i (0..19) {for my $j (0..199) { $eraser2[$i][$j]=$eraser1[$i][$j] }}
+    for my $i (0..19) {for my $j (0..199) { $eraser2[$i][$j]=$eraser[$frame][$i][$j] }}
     $delframe2 = $delframe1;
     $delframe2_bin = $delframe1_bin;
     $delframe1="";
     $delframe1_bin="";
-    $spriteprog .= "; draw frame $frame\n";
-    $spriteprog .=$spriteprog_all;
-    $spriteprog_bin .= $spriteprog_all_bin;
+    $spriteprog[$frame] .= "; draw frame $frame\n";
+    $spriteprog[$frame] .=$spriteprog_all;
+    $spriteprog_bin[$frame] .= $spriteprog_all_bin;
 
     # analyse deletes
 $curdel2=$curdel;
     for $i (0..19)  # 20 columns
     {
-      for $j (0..199) { $eraser1[$i][$j]=0 }
+      for $j (0..199) { $eraser[$frame][$i][$j]=0 }
       $aref = $deltab[$i];
       $delstart=-1;$delend=-1;
       foreach $j ( sort {$a <=> $b} @$aref )
@@ -646,7 +646,7 @@ $curdel2=$curdel;
         } else {
           if ($delend < $j)
           {
-            for (my $e=$delstart;$e<$delend;$e++) {$eraser1[$i][$e]=1}
+            for (my $e=$delstart;$e<$delend;$e++) {$eraser[$frame][$i][$e]=1}
             $delframe1 .= "delete from: [ $delstart to $delend ] (".($delend-$delstart).")\n" unless $debug;
             $delframe1 .= "\t dc.w ".($i*8+($delstart)*160-$curdel).",".(-4*(1+$delend-$delstart))."; col $i [ $delstart to $delend ]\n";
             $delframe1_bin .= pack("n",($i*8+($delstart)*160-$curdel)).pack("n",-4*(1+$delend-$delstart));
@@ -661,7 +661,7 @@ $curdel2=$curdel;
       }
       if ($delstart>-1)
       {
-        for (my $e=$delstart;$e<$delend;$e++) {$eraser1[$i][$e]=1}
+        for (my $e=$delstart;$e<$delend;$e++) {$eraser[$frame][$i][$e]=1}
         $delframe1 .= "delete from: [ $delstart to $delend ] (".($delend-$delstart).")\n" unless $debug;
         $delframe1 .= "\t dc.w ".($i*8+($delstart)*160-$curdel).",".(-4*(1+$delend-$delstart))."; col $i [ $delstart to $delend ]\n";
         $delframe1_bin .= pack("n",($i*8+($delstart)*160-$curdel)).pack("n",-4*(1+$delend-$delstart));
@@ -685,15 +685,34 @@ $spriteprog_bin =~ s/DOUBLE_1_BUFFDEL/$delframe1_bin/;
 $spriteprog_bin =~ s/DOUBLE_2_BUFFDEL/$delframe2_bin/;
 # $spriteprog =~ s/DOUBLE_3_BUFFDEL/$delframe3/;
 $spriteprog_bin =~ s/DOUBLE_3_BUFFDEL/$delframe3_bin/;
-open (O,">spritab.s");
-print O $delframe4;
-print O $spriteprog;
-close O;
-print "\tincbin \"cblesprt.bin\"\n";
-open (O,">cblesprt.bin");
+open (O,">cblesprt2.bin");
 print O $delframe4_bin;
 print O $spriteprog_bin;
 close O;
+open (O,">spritab.s");
+open (OB,">cblesprt.bin");
+for $frame (1..$wavelen)
+{
+  $curdel=0;
+  $curdel2=0;
+  $df=$frame-4;
+  if ($df <=0) {$df+=$wavelen}
+  $delframe4="";
+  $delframe4_bin="";
+  for my $i (0..19) {for my $j (0..199) { $eraser4[$i][$j]=$eraser[$df][$i][$j] }}
+  $delcount=0;
+  eee();
+  print O "; erase frame $df\n";
+  print O "\tdc.w $delcount\n";
+  print O $delframe4;
+  print O $spriteprog[$frame];
+  print OB pack("n",$delcount);
+  print OB $delframe4_bin;
+  print OB $spriteprog_bin[$frame];
+}
+close O;
+close OB;
+print "\tincbin \"cblesprt.bin\"\n";
 
 print $bss;
 
@@ -701,7 +720,7 @@ sub eee
 {
     for $i (0..19)
     {
-      $delframe4 .= "; col $i rows: ";
+#      $delframe4 .= "; col $i rows: ";
       $delstart=-1;$delend=-1;
       for $e (0..199)
       {
@@ -714,8 +733,8 @@ sub eee
           if ($delend < $j)
           {
             $delframe4 .= "\t dc.w ".($i*8+($delstart)*160-$curdel2).",".(-4*(1+$delend-$delstart))."; col $i [ $delstart to $delend ]\n";
-#            $delframe4_bin .= pack("n",($i*8+($delstart)*160-$curdel)).pack("n",-4*(1+$delend-$delstart));
-#            $delcount++;
+            $delframe4_bin .= pack("n",($i*8+($delstart)*160-$curdel)).pack("n",-4*(1+$delend-$delstart));
+            $delcount++;
         $curdel2=$i*8+$delstart*160;
             $delstart=$j;$delend=$j+1; # 16
           } else {
@@ -729,12 +748,12 @@ sub eee
         for (my $e=$delstart;$e<=$delend;$e++) {$eraser4[$i][$e]=1}
         $delframe4 .= "delete from: [ $delstart to $delend ] (".($delend-$delstart).")\n" unless $debug;
         $delframe4 .= "\t dc.w ".($i*8+($delstart)*160-$curdel2).",".(-4*(1+$delend-$delstart))."; col $i [ $delstart to $delend ]\n";
-#        $delframe4_bin .= pack("n",($i*8+($delstart)*160-$curdel)).pack("n",-4*(1+$delend-$delstart));
+        $delframe4_bin .= pack("n",($i*8+($delstart)*160-$curdel)).pack("n",-4*(1+$delend-$delstart));
         $curdel2=$i*8+$delstart*160;
-#        $delcount++;
+        $delcount++;
         $delstart=$j;$delend=$j+1; # 16
       }
-      $delframe4 .= "; \n ";
+#      $delframe4 .= "; \n ";
     } 
 
 }
